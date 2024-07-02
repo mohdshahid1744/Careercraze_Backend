@@ -15,6 +15,8 @@ router.post('/recLogin',recruiterController.loginSubmit)
 router.get('/count',recruiterController.getRecruiterCount)
 router.get('/all',recruiterController.getAll)
 router.put('/update/:email', recruiterController.updateStatus);
+router.put('/verify/:email', recruiterController.updateVerification);
+router.get('/showverify/:userId', recruiterController.getStatus);
 router.post('/createjob',upload.single("companylogo"),recruiterController.createJob)
 router.get('/getjob/:userId', recruiterController.getJob);
 router.get('/getjoball', recruiterController.getalljob);
@@ -25,6 +27,6 @@ router.post("/update/:id", upload.single("companylogo"), recruiterController.upd
 router.get('/candidates/:jobid', recruiterController.getCandidate);
 router.get('/getrecruiter/:id', recruiterController.getRecruiter)
 router.put('/updateProfile/:id',upload.single("avatar"), recruiterController.updateProfile)
-router.put('/updateProfileData/:id', recruiterController.updateProfileData)
+router.put('/updateProfileData/:userId', recruiterController.updateProfileData)
 router.post('/searchjob',  recruiterController.searchJob)
 export default router       

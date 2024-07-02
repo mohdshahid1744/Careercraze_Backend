@@ -65,7 +65,15 @@ const createUser = async (userdatas: Partial<IUser>) => {
     if (userdata) {
         userdata.avatar = url
     }
-
+    const getBannerParams = {
+      Bucket: bucket_name,
+      Key: userdata?.banner,
+  }
+  const getBannerCommand = new GetObjectCommand(getBannerParams);
+  const url2 = await getSignedUrl(s3, getBannerCommand, { expiresIn: 3600 });
+  if (userdata) {
+      userdata.banner = url2
+  }
     return userdata
   } catch (err) {
     console.error("Error creating", err);
@@ -119,6 +127,15 @@ const getUser=async(id:string)=>{
     if (user) {
         user.avatar = url
     }
+    const getBannerParams = {
+      Bucket: bucket_name,
+      Key: user?.banner,
+  }
+  const getBannerCommand = new GetObjectCommand(getBannerParams);
+  const url2 = await getSignedUrl(s3, getBannerCommand, { expiresIn: 3600 });
+  if (user) {
+      user.banner = url2
+  }
 
     return user
 } catch (err) {
@@ -194,21 +211,40 @@ const educationData = async (
 
 
 
-const skillData=async(userId:string,skill:string)=>{
+const skillData = async (userId: string, skill: string) => {
   try {
-    const response=await userModel.updateOne({_id:userId},{$push:{skills:{skill:skill}}},{upsert:true})
-    console.log("REPO",response);
-    
-    if (response.modifiedCount > 0) {
-      return { success: true, message: 'Skill Data updated successfully',response };
-  } else {
-      return { success: false, message: 'skill data not updated' };
+    const user = await userModel.findById(userId);
+console.log("USERSADSA",user);
+
+    if (!user) {
+      return { success: false, message: 'User not found' };
+    }
+if(user.skills){
+
+  const skillExists = user.skills.some((s: any) => s.skill === skill);
+  if (skillExists) {
+    return { status:403,success: false, message: 'Skill already added' };
   }
-  }  catch (err) {
-    console.error(`Error on Skill data: ${err}`);
-    return null;
+  const response = await userModel.updateOne(
+    { _id: userId },
+    { $push: { skills: { skill: skill } } },
+    { upsert: true }
+  );
+
+  console.log("REPO", response);
+  if (response.modifiedCount > 0) {
+    return { success: true, message: 'Skill data updated successfully', response };
+  } else {
+    return { success: false, message: 'Skill data not updated' };
   }
 }
+
+  } catch (err) {
+    console.error(`Error on skill data: ${err}`);
+    return { success: false, message: 'Server error' };
+  }
+};
+
 const updateSkill = async (userId: string, skillId: string, newSkill: string) => {
   try {
     const response = await userModel.updateOne(
@@ -275,6 +311,78 @@ const saveApplication=async(data:UserData)=>{
     throw error
   }
 }
+const updateCover=async(userId:string,image:string)=>{
+  try {
+    let response=await userModel.updateOne({_id:userId},{$set:{banner:image}})
+    if (response.modifiedCount > 0) {
+      return { success: true, message: 'Banner Image updated successfully' };
+  } else {
+      return { success: false, message: 'No image was updated' };
+  }
+
+} catch (err) {
+  console.error(`Error on user cover: ${err}`);
+  return null;
+}
+}
+const searchUser=async(text:string)=>{
+  try {
+    if (text.trim() == '') {
+        let users: never[] = []
+        return { users };
+    }
+    const regex = new RegExp(text, 'i');
+    const users = await userModel.find({
+        name: regex
+    });
+    for (let user of users) {
+        const getObjectParams = {
+            Bucket: bucket_name,
+            Key: user.avatar,
+        }
+
+        const getObjectCommand = new GetObjectCommand(getObjectParams);
+        const url = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
+        user.avatar = url
+    }
+    console.log(users, 'in repos');
+
+    return { users };
+} catch (err) {
+    console.error(`Error finding searching user: ${err}`);
+    return null;
+}
+  }
+const follow=async(userId:string,guestId:string)=>{
+  try {
+    let following=await userModel.updateOne({_id:userId},{$addToSet:{following:guestId}})
+    let followers=await userModel.updateOne({_id:guestId},{$addToSet:{followers:userId}})
+    if (following.modifiedCount === 1 && followers.modifiedCount === 1) {
+      return { success: true, message: 'Followed successfully' };
+  } else {
+
+      throw new Error('Failed to update followings and/or followers');
+  }
+  }  catch (err) {
+    console.error(`Error finding following user: ${err}`);
+    return null;
+}
+}
+const unfollow=async(userId:string,guestId:string)=>{
+  try {
+    let following=await userModel.updateOne({_id:userId},{$pull:{following:guestId}})
+    let followers=await userModel.updateOne({_id:guestId},{$pull:{followers:userId}})
+    if (following.modifiedCount === 1 && followers.modifiedCount === 1) {
+      return { success: true, message: 'unFollowed successfully' };
+  } else {
+
+      throw new Error('Failed to update followings and/or followers');
+  }
+  } catch (err) {
+    console.error(`Error finding unfollowing user: ${err}`);
+    return null;
+}
+}
 export default {
   findUser,
   createUser,
@@ -287,5 +395,9 @@ export default {
   profileData,
   experienceData,
   saveApplication,
-  updateSkill
+  updateSkill,
+  updateCover,
+  searchUser,
+  follow,
+  unfollow
 };

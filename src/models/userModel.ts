@@ -13,6 +13,9 @@ export interface IUser extends Document{
     isAdmin:boolean,
     isActive:boolean,
     password:string,
+    banner?: string;
+    followers: mongoose.Types.ObjectId[];
+    following: mongoose.Types.ObjectId[];
     matchPassword: (enteredPassword: string) => Promise<boolean>
 }
 
@@ -63,7 +66,21 @@ const userSchema:Schema<IUser>=new Schema({
     },
     password:{
         type:String
-    }
+    },
+    banner: {
+        type: String,
+        default: "banner.png"
+    },
+    followers: [
+        {
+            type: Schema.Types.ObjectId,
+        }
+    ],
+    following: [
+        {
+            type: Schema.Types.ObjectId,
+        }
+    ],
 })
 
 userSchema.pre<IUser>('save',async function (next) {

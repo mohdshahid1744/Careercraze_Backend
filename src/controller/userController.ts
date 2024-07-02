@@ -10,6 +10,7 @@ import { JwtPayload } from 'jsonwebtoken';
 import jwt from "jsonwebtoken";
 import sharp from 'sharp';
 import crypto from 'crypto'
+import SkillModel from "../models/skillModels";
 import {S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 
@@ -30,6 +31,7 @@ interface ReqBody {
     status: number;
     message: string;
   }
+  
   const randomImageName = (bytes = 32) => crypto.randomBytes(bytes).toString('hex');
   let bucket_name = process.env.BUCKET_NAME;
   let access_key = process.env.USER_ACCESS_KEY;
@@ -274,6 +276,22 @@ const updateUserStatus = async (req:Request, res:Response) => {
     
   }
 }
+const getStatus = async (req: Request, res: Response) => {
+  const { email } = req.params;
+
+  try {
+    const user = await userModel.findOne({ email });
+
+    if (user) {
+      res.json({ isActive: user.isActive });
+    } else {
+      res.status(404).json({ error: 'User not found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
 const updateProfile=async(req:Request,res:Response)=>{
   try {
     const { id } = req.params;
@@ -301,7 +319,11 @@ const updateProfile=async(req:Request,res:Response)=>{
     existingUser.avatar = avatar;
 
     const updateUser = await existingUser.save();
-    res.status(200).json({ message: 'User Profile updated successfully', job: updateUser });
+    if (updateUser) {
+      res.json({ success: true, updateUser });
+    } else {
+      res.status(404).json({ success: false, message: 'User not found' });
+    }
   } catch (error) {
     console.error('Error updating user profile:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -520,10 +542,15 @@ const editExperience = async (req: Request, res: Response) => {
 
 
 const updateProfileData=async(req:Request,res:Response)=>{
-  const {id}=req.params
+  const {userId}=req.params
   const {mobile,title,name}=req.body
   try {
-    const response=await userRepository.profileData(id,mobile,title,name)
+    const response=await userRepository.profileData(userId,mobile,title,name)
+    if (response) {
+      res.json({ success: true, response });
+    } else {
+      res.status(404).json({ success: false, message: 'User not found' });
+    }
   } catch (error) {
     console.error('Error updating Profile data:', error);
     res.status(500).json({ message: 'Server error', error });
@@ -562,7 +589,139 @@ const applyApplication=async(req:Request,res:Response)=>{
     return res.status(500).json({ error: 'An error occurred while submitting the application' });
   }
 }
+const addSkills=async(req:Request,res:Response)=>{
+  const {skill}=req.body
+  try {
+    const newSkill = new SkillModel({ skill });
+    await newSkill.save();
+    res.status(201).json(newSkill);
+} catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+}
+}
+const getSkills = async (req: Request, res: Response) => {
+  try {
+    const skills = await SkillModel.find();
+    res.status(200).json(skills);
+  } catch (error) {
+    console.error("Error fetching skills:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+const editAdminSkills = async (req: Request, res: Response) => {
+  const {id} =req.params
+  const {skill } = req.body;
+  try {
 
+      if (!id || !skill) {
+          return res.status(400).json({ message: 'Skill ID and new skill data are required' });
+      }
+
+      const updatedSkill = await SkillModel.findByIdAndUpdate(id, { skill }, { new: true });
+
+      if (!updatedSkill) {
+          return res.status(404).json({ message: 'Skill not found' });
+      }
+
+      res.status(200).json(updatedSkill);
+  } catch (error) {
+      console.error('Error updating skill:', error);
+      res.status(500).json({ message: 'Internal server error' });
+  }
+};
+const deleteAdminSkill = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const skill = await SkillModel.findByIdAndDelete(id);
+
+    if (skill) {
+      console.log("Skill deleted:", skill);
+      res.json({ success: true, message: 'Skill deleted successfully' });
+    } else {
+      res.status(404).json({ error: 'Skill not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting skill:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+const updateBanner=async(req:Request,res:Response)=>{
+  try {
+    const { id } = req.params;
+    const existingUser = await userModel.findById(id);
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    let banner = existingUser.banner;
+    if(req.file){
+      banner = randomImageName()
+      const buffer = await sharp(req.file.buffer)
+      .resize({  height: 600, width: 1820, fit: "cover" })
+      .toBuffer();
+    console.log("Processed Buffer:", buffer);
+    const params = {
+      Bucket: bucket_name,
+      Key: banner,
+      Body: buffer,
+      ContentType: req.file.mimetype,
+    };
+
+    const uploadCommand = new PutObjectCommand(params);
+    await s3.send(uploadCommand);
+    }
+    existingUser.banner = banner;
+
+    const updateUser = await existingUser.save();
+    if (updateUser) {
+      res.json({ success: true, updateUser });
+    } else {
+      res.status(404).json({ success: false, message: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Error updating Banner:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+const searchUser = async (req: Request, res: Response) => {
+  try {
+    const { text } = req.query;
+    if (!text || typeof text !== 'string') {
+      res.status(400).json({ error: 'Invalid or missing text parameter' });
+      return;
+    }
+    
+    const response = await userRepository.searchUser(text);
+    console.log("SEARCH", response);
+    res.status(200).json({ users: response }); 
+  } catch (error) {
+    console.error('Error finding searching user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+const follow=async(req:Request,res:Response)=>{
+  const {userId,guestId}=req.params
+  try {
+    let response=await userRepository.follow(userId,guestId)
+    console.log("FOLLOW CON",response);
+    res.status(200).json({response})
+    
+  } catch (error) {
+    console.error('Error Foolowing user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+const unfollow=async(req:Request,res:Response)=>{
+  const {userId,guestId}=req.params
+  try {
+    let response=await userRepository.unfollow(userId,guestId)
+    console.log("UNFOLLOW CON",response);
+    res.status(200).json({response})
+  } catch (error) {
+    console.error('Error Unfoolowing user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
   export default{
     signupSubmit,
     loginSubmit,
@@ -584,5 +743,14 @@ const applyApplication=async(req:Request,res:Response)=>{
     editEducation,
     editExperience,
     deleteEducation,
-    deleteExperience
+    deleteExperience,
+    addSkills,
+    getSkills,
+    editAdminSkills,
+    deleteAdminSkill,
+    getStatus,
+    updateBanner,
+    searchUser,
+    follow,
+    unfollow
   }

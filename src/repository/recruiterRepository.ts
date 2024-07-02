@@ -169,18 +169,30 @@ const createJob=async(data:any,companylogo:string)=>{
         return null;
     }
 };
-const getJob=async(userId:string)=>{
+const getJob = async (userId:string) => {
     try {
-        let getJob=await JobModel.find({recruiterId:userId})
-        console.log("AS",getJob);
-        
-        let response={jobs:getJob || []}
-        return response
+        let jobs = await JobModel.find({ recruiterId: userId });
+        console.log("AS", jobs);
+        for (let job of jobs) {
+            if (job.companylogo) {
+                const getObjectParams = {
+                    Bucket: bucket_name,
+                    Key: job.companylogo,
+                };
+                const getObjectCommand = new GetObjectCommand(getObjectParams);
+                const url = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
+                job.companylogo = url;
+            }
+        }
+
+        let response = { jobs: jobs || [] };
+        return response;
     } catch (err) {
         console.error(`Error displaying job: ${err}`);
         return null;
     }
-}
+};
+
 
 const getalljobs=async()=>{
     try {

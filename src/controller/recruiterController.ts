@@ -2,6 +2,8 @@ import recruiterService from "../services/recruiterService";
 import recruiterRepository from "../repository/recruiterRepository";
 import { Request,Response } from "express";
 import { emailVerification } from "../utils/sendMail";
+import { sendRejectionEmail } from "../utils/rejectionMail";
+import { sendVerificationEmail } from "../utils/verificationMail";
 import { generateOTP } from "../utils/generateOtp";
 import recruiterModel from "../models/recruiterModel";
 import recruiterJwt from "../Middleware/JWT/recruiterJwt";
@@ -21,6 +23,7 @@ interface ReqBody{
     mobile:string,
     companyEmail:string,
     companyName:string,
+    status:string
     password:string,
     confirm:string,
     otp:string,
@@ -208,6 +211,54 @@ const updateStatus = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     
+  }
+}
+
+const updateVerification = async (req: Request, res: Response) => {
+  const { email } = req.params;
+  const { status, reason } = req.body;
+
+  if (!['verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+  }
+
+  try {
+      const user = await recruiterModel.findOne({ email });
+
+      if (!user) {
+          return res.status(404).json({ message: 'Recruiter not found' });
+      }
+
+      if (user.status !== 'pending') {
+          return res.status(400).json({ message: 'Recruiter status is not pending' });
+      }
+
+      user.status = status;
+      await user.save();
+      if (status === 'rejected') {
+          await RejectionEmail(user.email, reason);
+      }
+      if (status === 'verified') {
+          await VerificationEmail(user.email);
+      }
+      const users = await recruiterModel.find(); 
+      return res.status(200).json({ message: `Recruiter status updated to ${status}`, users });
+  } catch (error) {
+      console.error('Error updating recruiter status:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+const getStatus=async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId;
+    const recruiter = await recruiterModel.findById(userId);
+    if (!recruiter) {
+      return res.status(404).json({ message: 'Recruiter not found' });
+    }
+    res.json({ status: recruiter.status }); 
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
   }
 }
 
@@ -477,16 +528,40 @@ const updateProfile=async(req:Request,res:Response)=>{
   }
 }
 const updateProfileData=async(req:Request,res:Response)=>{
-  const {id}=req.params
+  const {userId}=req.params
   const {mobile,name,companyName,companyEmail}=req.body
   try {
-    const response=await recruiterRepository.profileData(id,mobile,name,companyName,companyEmail)
+    const response=await recruiterRepository.profileData(userId,mobile,name,companyName,companyEmail)
+    if (response) {
+      res.json({ success: true, response });
+    } else {
+      res.status(404).json({ success: false, message: 'User not found' });
+    }
   } catch (error) {
     console.error('Error updating Profile data:', error);
     res.status(500).json({ message: 'Server error', error });
   }
 }
+const RejectionEmail = async (email: string,reason:string) => {
+  try {
 
+    await sendRejectionEmail(email,reason);
+    console.log('Rejection email sent successfully');
+  } catch (error) {
+    console.error('Error sending rejection email:', error);
+    
+  }
+};
+const VerificationEmail = async (email: string) => {
+  try {
+
+    await sendVerificationEmail(email);
+    console.log('Verification email sent successfully');
+  } catch (error) {
+    console.error('Error sending Verification email:', error);
+    
+  }
+};
 export default{
   recruiterSignup,
   loginSubmit,
@@ -506,5 +581,7 @@ export default{
   getRecruiter,
   updateProfile,
   updateProfileData,
-  searchJob
+  searchJob,
+  updateVerification,
+  getStatus
 }

@@ -8,7 +8,6 @@ import { Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import sharp from 'sharp'
 import crypto from 'crypto'
-import pdf from 'pdf-parse';
 
 import dotenv from "dotenv";
 import JobModel from "../models/jobModel";
@@ -218,22 +217,7 @@ const authenticateWithGoogle = async (credential: any) => {
         throw new Error(`Failed to sign in using google: ${err}`);
     }
 };
-const appliction=async(userData:any)=>{
-try {
-  const name=randomImageName()
-  const params={
-    Bucket: bucket_name,
-    Key: name,
-    Body: userData.cv.buffer,
-    ContetType: userData.cv.mimetype,
-  }
-  const pdfdata=await pdf(userData.cv.buffer)
 
-} catch (err) {
-  console.error('Error while saving Applicants:', err)
-  throw err
-}
-}
 
 export default {
   createRecruite,

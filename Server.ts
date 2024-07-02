@@ -7,6 +7,7 @@ import db from './src/FrameWork/Database/db';
 import userRoute from './src/FrameWork/Routes/userRoute';
 import recruiterRoute from './src/FrameWork/Routes/recruiterRoute'
 
+
 dotenv.config();
 const app = express();
 const port = 3001;
@@ -33,6 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/', userRoute);
 app.use('/recruiter', recruiterRoute);
+
 
 db.once('open', () => {
   const server = http.createServer(app);

@@ -10,7 +10,7 @@ import { Response } from "express";
 import dotenv from 'dotenv'
 import sharp from 'sharp'
 import crypto from 'crypto'
-import pdf from 'pdf-parse';
+import jwt from "jsonwebtoken";
 dotenv.config()
 
 interface ReqBody{
@@ -101,8 +101,14 @@ const authenticateWithGoogle = async (credential: any) => {
             });
             await user.save();
         }
+        const secretKey = process.env.USER_SECRET_KEY;
+        if (!secretKey) {
+            throw new Error('Secret key is not defined');
+        }
 
-        return { status: 200, user: user, success: true };
+        const token = jwt.sign({ userId: user._id, email: user.email }, secretKey, { expiresIn: '1h' });
+
+        return { status: 200, user: user, success: true, token: token };
     } catch (err) {
         throw new Error(`Failed to sign in using Google: ${err}`);
     }
@@ -129,9 +135,7 @@ const applyApplication=async(userData:any)=>{
             Body: userData.cv.buffer,
             ContetType: userData.cv.mimetype,
         }
-        const pdfData = await pdf(userData.cv.buffer);
-        console.log("SDF",pdfData);
-        
+       
         const command = new PutObjectCommand(params)
         await s3.send(command);
         userData.cv = cv

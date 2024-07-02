@@ -10,6 +10,7 @@ export interface recruiter extends Document{
     avatar?:string,
     companyEmail:string,
     isActive:boolean,
+    status: 'pending' | 'verified' | 'rejected'; 
     matchPassword:(enteredPassword:string)=>Promise<boolean>
 }
 
@@ -43,7 +44,12 @@ const recruiterSchema:Schema<recruiter>=new Schema({
     isActive:{
         type:Boolean,
         default:true
-    }
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'verified', 'rejected'], 
+        default: 'pending' 
+      }
 })
 
 recruiterSchema.pre<recruiter>('save',async function(next){
