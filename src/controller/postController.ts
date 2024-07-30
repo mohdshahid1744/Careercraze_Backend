@@ -147,13 +147,27 @@ const dislikePost=async(req:Request,res:Response)=>{
     }
 }
 const commentPost=async(req:Request,res:Response)=>{
-    const {userId,postId,comment}=req.body
+    const {userId,postId,comment,username}=req.body
     if (!userId || !postId) {
         return res.status(400).json({ error: 'userId and postId are required in the request body' });
     }
     try {
-        const result=await postRepository.commentPost(userId,postId,comment)
-        res.status(200).json({message:'Comment added successfully'})
+        const result=await postRepository.commentPost(userId,postId,comment,username)
+        res.status(200).json({message:'Comment added successfully',result})
+    } catch (error) {
+        console.error(`Error adding comment: ${error}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+const replyComment=async(req:Request,res:Response)=>{
+    const {userId,postId,comment,parentCommentId,username}=req.body
+    if (!userId || !postId || !parentCommentId) {
+        return res.status(400).json({ error: 'userId , postId and parentCommentId are required in the request body' });
+    }
+    try {
+        const result=await postRepository.replyComment(userId,postId,comment,parentCommentId,username)
+        res.status(200).json({message:'Comment added successfully',result})
     } catch (error) {
         console.error(`Error adding comment: ${error}`);
         res.status(500).json({ error: 'Internal server error' });
@@ -194,6 +208,17 @@ const reportPost=async(req:Request,res:Response)=>{
         res.status(500).json({ error: 'Internal server error' });    
     }
 }
+const deleteComments=async(req:Request,res:Response)=>{
+    try {
+        const {postId,commentId}=req.body
+        const response=await postService.deleteComments(postId,commentId)
+        res.status(200).json({response}) 
+        
+    }catch (error) {
+        console.error(`Error deleting comment: ${error}`);
+        res.status(500).json({ error: 'Internal server error' });    
+    }
+}
 export default{
     createPost,
     getUserPost,
@@ -204,5 +229,7 @@ export default{
     getAllComments,
     deletePost,
     editPost,
-    reportPost
+    reportPost,
+    deleteComments,
+    replyComment
 }

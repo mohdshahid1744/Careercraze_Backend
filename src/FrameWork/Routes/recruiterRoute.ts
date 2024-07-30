@@ -29,4 +29,8 @@ router.get('/getrecruiter/:id', recruiterController.getRecruiter)
 router.put('/updateProfile/:id',upload.single("avatar"), recruiterController.updateProfile)
 router.put('/updateProfileData/:userId', recruiterController.updateProfileData)
 router.post('/searchjob',  recruiterController.searchJob)
+router.get('/getPdf', recruiterController.getPdf)
+router.get('/searchrecruiter', recruiterController.searchRecruiter)
+router.get('/follow/:userId/:guestId', recruiterController.follow)
+router.get('/unfollow/:userId/:guestId', recruiterController.unfollow)
 export default router       

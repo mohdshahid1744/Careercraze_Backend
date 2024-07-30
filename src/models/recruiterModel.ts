@@ -9,6 +9,8 @@ export interface recruiter extends Document{
     password:string,
     avatar?:string,
     companyEmail:string,
+    followers: mongoose.Types.ObjectId[];
+    following: mongoose.Types.ObjectId[];
     isActive:boolean,
     status: 'pending' | 'verified' | 'rejected'; 
     matchPassword:(enteredPassword:string)=>Promise<boolean>
@@ -45,6 +47,16 @@ const recruiterSchema:Schema<recruiter>=new Schema({
         type:Boolean,
         default:true
     },
+    followers: [
+        {
+            type: Schema.Types.ObjectId,
+        }
+    ],
+    following: [
+        {
+            type: Schema.Types.ObjectId,
+        }
+    ],
     status: {
         type: String,
         enum: ['pending', 'verified', 'rejected'], 

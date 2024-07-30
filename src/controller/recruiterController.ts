@@ -562,6 +562,73 @@ const VerificationEmail = async (email: string) => {
     
   }
 };
+const getPdf = async (req: Request, res: Response) => {
+  const url = req.query.url as string;
+
+  if (!url) {
+    res.status(400).send('URL is required');
+    return;
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch the PDF');
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    res.setHeader('Content-Disposition', 'attachment; filename="resume.pdf"');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(buffer);
+  } catch (error) {
+    console.error('Error downloading file', error);
+    res.status(500).send('Error downloading file');
+  }
+};
+const searchRecruiter = async (req: Request, res: Response) => {
+  try {
+    const { text } = req.query;
+    if (!text || typeof text !== 'string') {
+      res.status(400).json({ error: 'Invalid or missing text parameter' });
+      return;
+    }
+    
+    const response = await recruiterRepository.searchRecruiter(text);
+    console.log("SEARCH", response);
+    res.status(200).json({ users: response }); 
+  } catch (error) {
+    console.error('Error finding searching user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+const follow=async(req:Request,res:Response)=>{
+  const {userId,guestId}=req.params
+  console.log("PARAMSS",req.params);
+  
+  try {
+    let response=await recruiterRepository.follow(userId,guestId)
+    console.log("FOLLOW CON",response);
+    res.status(200).json({response})
+    
+  } catch (error) {
+    console.error('Error Foolowing user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+const unfollow=async(req:Request,res:Response)=>{
+  const {userId,guestId}=req.params
+  try {
+    let response=await recruiterRepository.unfollow(userId,guestId)
+    console.log("UNFOLLOW CON",response);
+    res.status(200).json({response})
+  } catch (error) {
+    console.error('Error Unfoolowing user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export default{
   recruiterSignup,
   loginSubmit,
@@ -583,5 +650,9 @@ export default{
   updateProfileData,
   searchJob,
   updateVerification,
-  getStatus
+  getStatus,
+  getPdf,
+  searchRecruiter,
+  follow,
+  unfollow
 }

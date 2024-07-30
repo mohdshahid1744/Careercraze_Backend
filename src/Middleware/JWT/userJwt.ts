@@ -16,24 +16,37 @@ const verifyJwtUser = async (req: CustomRequest, res: Response, next: NextFuncti
     }
 
     let token;
+    
+    
 
     if ('authorization' in req.headers) {
         token = req.headers['authorization']?.split(' ')[1];
+        console.log("TOOOOOOOOOOOOOOOOOOOOOKEN", req.headers['authorization']);
     }
+    
 
     if (token) {
         try {
+            console.log("KERRRRIIIIIIIIIIIII");
+        
             const decoded = jwt.verify(token, secretKey) as { id: string; role: string };
+            console.log("ASDASD", decoded);
+        
             req.id = decoded.id;
-            req.role = decoded.role
+            req.role = decoded.role;
             next();
-        } catch (error) {
+        } catch (error:any) {
+            console.error("Error verifying token:", error.message);
             if (error instanceof jwt.TokenExpiredError) {
                 res.status(401).json({ message: "Token expired" });
+            } else if (error instanceof jwt.JsonWebTokenError) {
+                res.status(401).json({ message: "Invalid token" });
             } else {
                 res.status(401).json({ message: "Token authentication failed" });
             }
         }
+        
+        
     } else {
         res.status(401).json({ message: "Missing or invalid token" });
     }
@@ -45,8 +58,13 @@ const generateToken = (id: string, role?: string) => {
   if (!secretKey) {
       throw new Error('User secret key is not defined');
   }
+console.log("HELLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLO");
 
-  return jwt.sign({ id, role }, secretKey as Secret, { expiresIn: '1h' }); 
+ const JWT =jwt.sign({ id, role }, secretKey as Secret, { expiresIn: '30d' }); 
+ console.log("JAAAAAAAAAA",JWT);
+ 
+ return JWT
+ 
 };
 
 interface DecodedToken {

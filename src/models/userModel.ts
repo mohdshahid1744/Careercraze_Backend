@@ -14,6 +14,7 @@ export interface IUser extends Document{
     isActive:boolean,
     password:string,
     banner?: string;
+    lastSeen: string;
     followers: mongoose.Types.ObjectId[];
     following: mongoose.Types.ObjectId[];
     matchPassword: (enteredPassword: string) => Promise<boolean>
@@ -70,6 +71,9 @@ const userSchema:Schema<IUser>=new Schema({
     banner: {
         type: String,
         default: "banner.png"
+    },
+    lastSeen:{
+        type:String,
     },
     followers: [
         {

@@ -11,7 +11,9 @@ import jwt from "jsonwebtoken";
 import sharp from 'sharp';
 import crypto from 'crypto'
 import SkillModel from "../models/skillModels";
-import {S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {S3Client, PutObjectCommand,GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import recruiterRepository from "../repository/recruiterRepository";
 
 
 
@@ -26,6 +28,7 @@ interface ReqBody {
     createdAt: Date;
     isBlocked: boolean;
   }
+
 
   interface signupSubmitResponse {
     status: number;
@@ -96,21 +99,26 @@ console.log("SFDFSFS",req.cookies);
   
       if (loginResponse.success) {
         const user = loginResponse.user;
-        const userDataString = user ? user._id : undefined;
+        const userDataString = user ? user._id.toString() : undefined; 
         console.log("DASADS", userDataString);
   
         const isAdmin = user ? user.isAdmin : false;
         const isActive = user ? user.isActive : false;
+        if (userDataString) {
+          const role = loginResponse.isAdmin ? 'admin' : 'user';
+          const token = userJwt.generateToken(userDataString, role);
   
-  
-        res.status(200).json({
-          status: 200,
-          message: 'Login successful',
-          _id: userDataString,
-          isAdmin: isAdmin,
-          token: 'JWT-TOKEN',
-          isActive: isActive,
-        });
+          res.status(200).json({
+            status: 200,
+            message: 'Login successful',
+            _id: userDataString,
+            isAdmin: isAdmin,
+            token: token, 
+            isActive: isActive,
+          });
+        } else {
+          throw new Error('User data is missing _id');
+        }
       } else {
         if (loginResponse.message === 'User is inactive') {
           res.status(403).json({
@@ -224,18 +232,32 @@ const verifyOtp = async (
         res.status(500).json({ message: "Internal server error" });
     }
 };
-const getAllUsers = async (req:Request, res:Response) => {
+const getAllUsers = async (req: Request, res: Response) => {
   try {
-      const users = await userModel.find()  
-      res.json({ users })
+    const users = await userModel.find();
+
+    for (const user of users) {
+      const getObjectParams = {
+        Bucket: bucket_name,
+        Key: user?.avatar,
+    }
+      const getObjectCommand = new GetObjectCommand({
+        ...getObjectParams,
+        Key: user.avatar, 
+      });
+      const url = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
+      user.avatar = url;
+    }
+
+    res.json({ users });
   } catch (error: unknown) {
     if (error instanceof Error) {
       res.status(500).json({ error: error.message });
-  } else {
+    } else {
       res.status(500).json({ error: 'An unexpected error occurred.' });
+    }
   }
-  }
-}
+};
 const googleAuth = async (req: Request, res: Response) => {
   try {
     const credential = req.body
@@ -252,13 +274,13 @@ const googleAuth = async (req: Request, res: Response) => {
 };
 const getUserCount = async (req: Request, res: Response) => {
   try {
-      const count = await userModel.countDocuments();
-      res.status(200).json({ count });
+    const count = await userModel.countDocuments();
+    res.status(200).json({ count });
   } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Internal server error" });
+    console.error('Error retrieving user count:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
-}
+};
 const updateUserStatus = async (req:Request, res:Response) => {
   const { email } = req.params;
   try {
@@ -683,6 +705,7 @@ const updateBanner=async(req:Request,res:Response)=>{
     res.status(500).json({ message: 'Internal server error' });
   }
 }
+
 const searchUser = async (req: Request, res: Response) => {
   try {
     const { text } = req.query;
@@ -699,11 +722,23 @@ const searchUser = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+const getFollowers=async(req:Request,res:Response)=>{
+  try {
+    const {userId}=req.params
+    let response=await userRepository.getFollowers(userId)
+    res.status(200).json({ users: response }); 
+  } catch (error) {
+    console.error('Error getting foolowers :', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
 const follow=async(req:Request,res:Response)=>{
   const {userId,guestId}=req.params
+  console.log("PARAMS",req.params);
+  
   try {
     let response=await userRepository.follow(userId,guestId)
-    console.log("FOLLOW CON",response);
+    console.log("FOLLOW CONNN",response);
     res.status(200).json({response})
     
   } catch (error) {
@@ -719,6 +754,48 @@ const unfollow=async(req:Request,res:Response)=>{
     res.status(200).json({response})
   } catch (error) {
     console.error('Error Unfoolowing user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+const logout=async(req:Request,res:Response)=>{
+  try {
+    const {userId}=req.body
+    let response=await userRepository.logout(userId)
+    res.status(200).json({response})
+  } catch (error) {
+    console.error('Error getting last seen:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+const saveJob=async(req:Request,res:Response)=>{
+  const {jobId,userId}=req.body
+  if (!jobId) {
+    return res.status(400).json({ error: "Job ID is required" });
+}
+  try {
+    const response=await userRepository.saveJob(userId,jobId)
+    res.status(200).json({response})
+  }  catch (error) {
+    console.error('Error saving job :', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+const getAllSavedJob=async(req:Request,res:Response)=>{
+  try {
+    const response=await userService.getallSavedJob()
+    res.status(200).json({response})
+  } catch (error) {
+    console.error('Error getting saved job :', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+const removeSavedJob=async(req:Request,res:Response)=>{
+  const {savedId}=req.params
+  try {
+    const response=await userRepository.removeSavedJob(savedId)
+    res.status(200).json({response})
+  } catch (error) {
+    console.error('Error deleting saved job :', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -752,5 +829,10 @@ const unfollow=async(req:Request,res:Response)=>{
     updateBanner,
     searchUser,
     follow,
-    unfollow
+    unfollow,
+    getFollowers,
+    logout,
+    saveJob,
+    getAllSavedJob,
+    removeSavedJob
   }

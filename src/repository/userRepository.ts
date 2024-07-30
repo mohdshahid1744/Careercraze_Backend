@@ -4,6 +4,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import JobModel from "../models/jobModel";
 import bcrypt from 'bcryptjs'
 import dotenv from "dotenv";
+import recruiterModel from "../models/recruiterModel";
+import SaveJobModel from "../models/saveJobModel";
 dotenv.config();
 
 interface User{
@@ -335,6 +337,9 @@ const searchUser=async(text:string)=>{
     const users = await userModel.find({
         name: regex
     });
+    const recruiters = await recruiterModel.find({
+      name: regex
+  });
     for (let user of users) {
         const getObjectParams = {
             Bucket: bucket_name,
@@ -346,13 +351,39 @@ const searchUser=async(text:string)=>{
         user.avatar = url
     }
     console.log(users, 'in repos');
+    for (let recruiter of recruiters) {
+      const getObjectParams = {
+          Bucket: bucket_name,
+          Key: recruiter.avatar,
+      }
 
-    return { users };
+      const getObjectCommand = new GetObjectCommand(getObjectParams);
+      const url = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
+      recruiter.avatar = url
+  }
+
+    return { users,recruiters };
 } catch (err) {
     console.error(`Error finding searching user: ${err}`);
     return null;
 }
   }
+
+const getFollowers=async(userId:string)=>{
+  try {
+    const user = await userModel.findOne({ _id: userId });
+    if (user) {
+        const followings = user.following || [];
+        const followers = user.followers || [];
+        return { followings, followers };
+    } else {
+        return { followings: [] };
+    }
+} catch (err) {
+    console.error(`Error finding user by email: ${err}`);
+    return null;
+}
+}
 const follow=async(userId:string,guestId:string)=>{
   try {
     let following=await userModel.updateOne({_id:userId},{$addToSet:{following:guestId}})
@@ -383,6 +414,69 @@ const unfollow=async(userId:string,guestId:string)=>{
     return null;
 }
 }
+const logout=async(userId:string)=>{
+  try {
+    const user=await userModel.findById(userId)
+    if(user){
+      user.lastSeen = new Date().toISOString();
+      await user.save();
+      return user
+    }else{
+      throw new Error('Failed to update last seen');
+    }
+  }  catch (err) {
+    console.error(`Error finding last seen: ${err}`);
+    return null;
+}
+}
+const saveJob = async ( userId:string,jobId: string) => {
+  try {
+      const job = await JobModel.findById(jobId);
+      if (!job) {
+          throw new Error("Job not found");
+      }
+      const existJob=await SaveJobModel.findOne({ userId, jobId });
+      if (existJob) {
+        console.log("Job already exists");
+        return { message: "Job is already saved", job: null };
+      }
+      const savedJob = new SaveJobModel({
+        userId,
+        jobId: job._id,
+        jobrole: job.jobrole,
+        companyname: job.companyname,
+        joblocation: job.joblocation,
+        companylogo: job.companylogo,
+    });
+    const indexes = await SaveJobModel.collection.getIndexes();
+    console.log("Indexes:", indexes)
+      await savedJob.save();
+      console.log("Job saved successfully:", savedJob);
+
+      return {message: "Job is successfully saved",savedJob};
+  } catch (error) {
+      console.error("Error saving job:", error);
+      throw error;
+  }
+}
+const getallSavedJob = async () => {
+  try {
+    const response=await SaveJobModel.find()
+    return response
+  } catch (error) {
+    console.error("Error getting saved job:", error);
+    throw error;
+}
+};
+const removeSavedJob=async(savedId:string)=>{
+  try {
+    const response=await SaveJobModel.findByIdAndDelete({_id:savedId})
+    return response
+  }catch (error) {
+    console.error("Error deleting saved job:", error);
+    throw error;
+}
+}
 export default {
   findUser,
   createUser,
@@ -399,5 +493,10 @@ export default {
   updateCover,
   searchUser,
   follow,
-  unfollow
+  unfollow,
+  getFollowers,
+  logout,
+  saveJob,
+  getallSavedJob,
+  removeSavedJob
 };

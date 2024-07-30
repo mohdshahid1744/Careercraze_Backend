@@ -146,10 +146,33 @@ const applyApplication=async(userData:any)=>{
         
     }
 }
+const getallSavedJob=async()=>{
+    try {
+        const jobs=await userRepository.getallSavedJob()
+        console.log("SERRRR",jobs);
+        
+        for (const job of jobs) {
+                const getObjectParams = {
+                    Bucket: bucket_name,
+                    Key: job.companylogo,
+                }
+                const getObjectCommand = new GetObjectCommand(getObjectParams);
+                const url = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
+                job.companylogo = url
+                console.log(url);
+            }
+        
+        return jobs
+    } catch (err) {
+        console.error(`Error jobs: ${err}`);
+        return null;
+    }
+}
 export default{
     createUser,
     verifyLogin,
     sendMail,
     authenticateWithGoogle,
-    applyApplication
+    applyApplication,
+    getallSavedJob
 }

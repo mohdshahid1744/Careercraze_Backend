@@ -45,9 +45,9 @@ const dislikePost=async(userId:string,postId:string)=>{
         return null;
     }
 }
-const commentPost=async(userId:string,postId:string,comment:string)=>{
+const commentPost=async(userId:string,postId:string,comment:string,username:string)=>{
     try {
-        const updatedResult = await PostModel.updateOne({ _id: postId }, { $push: { comments: { userId: userId, message: comment } } })
+        const updatedResult = await PostModel.updateOne({ _id: postId }, { $push: { comments: { userId: userId, message: comment,username } } })
         console.log("COMMENT",updatedResult);
         return true
     } catch (error) {
@@ -105,6 +105,35 @@ const reportPost=async(postId:string,userId:string,reason:string)=>{
         return null;
     }
 }
+
+const deleteComments=async(postId:string,commentId:string)=>{
+    try {
+        const response = await PostModel.updateOne({ _id: postId }, {
+            $pull: { comments: { _id: commentId } }
+        })
+        if (!response) {
+            return { success: false }
+        }
+        return { success: true }
+    } catch (error) {
+        console.error(`Error deleting comment post: ${error}`);
+        return null;
+    }
+}
+
+const replyComment=async(userId: string, postId: string, comment: string, parentCommentId?: string,username?:string)=>{
+    try {
+        const updatedResult = await PostModel.updateOne(
+            { _id: postId, "comments._id": parentCommentId },
+            { $push: { "comments.$.replies": { userId, message: comment,username } } }
+        );
+        console.log("REPLY", updatedResult);
+        return true
+    } catch (error) {
+        console.error(`Error posting reply comment:${error}`);
+        return null;
+    }
+}
 export default{ 
     createPost,
     getPost,
@@ -113,5 +142,7 @@ export default{
     commentPost,
     deletePost,
     editPost,
-    reportPost
+    reportPost,
+    deleteComments,
+    replyComment
 }

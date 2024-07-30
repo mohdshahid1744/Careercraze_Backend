@@ -29,8 +29,18 @@ const reportPost=async(reason:string,postId:string,userId:string)=>{
         return null;
     }
 }
+const deleteComments=async(postId:string,commentId:string)=>{
+    try {
+        let response = await postRepository.deleteComments(postId, commentId)
+        return response
+    } catch (err) {
+        console.error(`Error post comment deletig: ${err}`);
+        return null;
+    }
+}
 export default {
     deletePost,
     editPost,
-    reportPost
+    reportPost,
+    deleteComments
 }

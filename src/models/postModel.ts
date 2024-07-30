@@ -4,7 +4,10 @@ interface Comment {
     userId: string;
     message: string;
     createdAt: Date;
+    username:string;
+    replies?: Comment[]; 
 }
+
 
 interface Like {
     userId: string;
@@ -15,7 +18,12 @@ interface Report {
     userId: string;
     reason: string
 }
-
+interface Reply extends Document {
+    userId: mongoose.Types.ObjectId;
+    message: string;
+    username:string;
+    createdAt: Date;
+}
 
 export interface Post extends Document {
     userId?: string;
@@ -28,7 +36,24 @@ export interface Post extends Document {
     createdAt: Date;
 }
 
-
+const ReplySchema: Schema<Reply> = new Schema({
+    userId: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true
+    },
+    message: {
+        type: String,
+        required: true
+    },
+    username:{
+        type:String
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+});
 const PostSchema: Schema<Post> = new Schema({
     userId: {
         type: Schema.Types.ObjectId,
@@ -38,6 +63,7 @@ const PostSchema: Schema<Post> = new Schema({
     image: {
         type: String, required: true
     },
+   
     description: {
         type: String, required: true
     },
@@ -49,9 +75,13 @@ const PostSchema: Schema<Post> = new Schema({
             message: {
                 type: String, required: true
             },
+            username:{
+                type:String
+            },
             createdAt: {
                 type: Date, default: Date.now
-            }
+            },
+            replies: [ReplySchema]
         }
     ],
     likes: [

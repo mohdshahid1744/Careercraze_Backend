@@ -6,6 +6,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from 'dotenv'
 import { Request,Response } from "express";
+import userModel from "../models/userModel";
 dotenv.config()
 
 interface Recruiter{
@@ -273,6 +274,82 @@ const profileData=async(userId:string,mobile:string,name:string,companyName:stri
     return null;
   }
   }
+  
+    const follow=async(userId:string,guestId:string)=>{
+        try {
+          let following=await recruiterModel.updateOne({_id:userId},{$addToSet:{following:guestId}})
+          let followers=await recruiterModel.updateOne({_id:guestId},{$addToSet:{followers:userId}})
+          console.log("FOLLOEA",following);
+          console.log("FOLLOWERRR",followers);
+          
+          
+          if (following.modifiedCount === 1 && followers.modifiedCount === 1) {
+            return { success: true, message: 'Followed successfully' };
+        } else {
+      
+            throw new Error('Failed to update followings and/or followers');
+        }
+        }  catch (err) {
+          console.error(`Error finding following user: ${err}`);
+          return null;
+      }
+      }
+      const unfollow=async(userId:string,guestId:string)=>{
+        try {
+          let following=await recruiterModel.updateOne({_id:userId},{$pull:{following:guestId}})
+          let followers=await recruiterModel.updateOne({_id:guestId},{$pull:{followers:userId}})
+          if (following.modifiedCount === 1 && followers.modifiedCount === 1) {
+            return { success: true, message: 'unFollowed successfully' };
+        } else {
+      
+            throw new Error('Failed to update followings and/or followers');
+        }
+        } catch (err) {
+          console.error(`Error finding unfollowing user: ${err}`);
+          return null;
+      }
+      }
+      const searchRecruiter=async(text:string)=>{
+        try {
+          if (text.trim() == '') {
+              let users: never[] = []
+              return { users };
+          }
+          const regex = new RegExp(text, 'i');
+          const users = await userModel.find({
+              name: regex
+          });
+          const recruiters = await recruiterModel.find({
+            name: regex
+        });
+          for (let user of users) {
+              const getObjectParams = {
+                  Bucket: bucket_name,
+                  Key: user.avatar,
+              }
+      
+              const getObjectCommand = new GetObjectCommand(getObjectParams);
+              const url = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
+              user.avatar = url
+          }
+          console.log(users, 'in repos');
+          for (let recruiter of recruiters) {
+            const getObjectParams = {
+                Bucket: bucket_name,
+                Key: recruiter.avatar,
+            }
+      
+            const getObjectCommand = new GetObjectCommand(getObjectParams);
+            const url = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
+            recruiter.avatar = url
+        }
+      
+          return { users,recruiters };
+      } catch (err) {
+          console.error(`Error finding searching user: ${err}`);
+          return null;
+      }
+        }
 export default{
 findRecruiter,
 createRecruiter,
@@ -288,5 +365,8 @@ Application,
 getSkills,
 getCandidate,
 getRecruiter,
-profileData
+profileData,
+follow,
+unfollow,
+searchRecruiter
 }
