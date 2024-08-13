@@ -33,6 +33,7 @@ const sendMessage = async (req: Request, res: Response) => {
             };
             const command = new PutObjectCommand(params);
             await s3.send(command);
+            
 
             filePath = name;
             fileType = req.file.mimetype;

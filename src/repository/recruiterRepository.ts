@@ -1,7 +1,8 @@
 import recruiterModel,{recruiter} from "../models/recruiterModel";
 import JobModel from "../models/jobModel";
 const mongoose = require('mongoose');
-
+import { sendCandidateRejectionEmail } from "../utils/candidateReject";
+import { sendCandidateShortlistedEmail } from "../utils/candidateShortlist";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from 'dotenv'
@@ -350,6 +351,150 @@ const profileData=async(userId:string,mobile:string,name:string,companyName:stri
           return null;
       }
         }
+        const updateApplystatus = async (jobId: string, userId: string, status: string) => {
+            try {
+              let job = await JobModel.findOne({ _id: jobId });
+              if (!job) {
+                throw new Error(`Job with ID ${jobId} not found`);
+              }
+          
+              let recruiter = await recruiterModel.findById(job.recruiterId);
+              if (!recruiter) {
+                throw new Error(`Recruiter with ID ${job.recruiterId} not found`);
+              }
+          
+              let applicantEmail = '';
+              let recruiterName = recruiter.name; 
+              let jobTitle = job.jobrole;
+              let companyName = job.companyname;
+          
+              job.applicants.forEach((applicant) => {
+                if (applicant.userId.toString() === userId) {
+                  applicant.status = status;
+                  if (status === 'rejected' || status === 'shortlisted') {
+                    applicantEmail = applicant.email;
+                  }
+                }
+              });
+          
+              await job.save();
+          
+              if (status === 'rejected' && applicantEmail) {
+                await sendCandidateRejectionEmail(applicantEmail, recruiterName, jobTitle, companyName);
+              } else if (status === 'shortlisted' && applicantEmail) {
+                await sendCandidateShortlistedEmail(applicantEmail, recruiterName, jobTitle, companyName);
+              }
+          
+              return { success: true, message: "Successfully Status Changed" }
+            } catch (error) {
+              console.error('Error updating application status:', error);
+              return { success: false, message: 'Error updating application status' };
+            }
+          };
+          
+
+    const getChartDetails=async(currentYear:number,month:number)=>{
+        try {
+            const userStats = await recruiterModel.aggregate([
+                {
+                    $match: {
+                        $expr: {
+                            $eq: [{ $year: "$createdAt" }, currentYear]
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            month: { $month: "$createdAt" },
+                        },
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $sort: {
+                        "_id.month": 1
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        month: "$_id.month",
+                        count: 1
+                    }
+                }
+
+            ])
+            const result = Array.from({ length: month + 1 }, (_, i) => ({
+                month: i + 1,
+                count: 0
+            }));
+            userStats.forEach(stat => {
+                const index = result.findIndex(r => r.month == stat.month);
+                if (index !== -1) {
+                    result[index].count = stat.count;
+                }
+            });
+            let count = await recruiterModel.find().countDocuments();
+            return { result, count }
+        } catch (err) {
+            console.error(`Error fetching chart: ${err}`);
+            return null;
+        }
+    }
+
+    const getJobChart=async(currentYear: number, month: number)=>{
+        try {
+            const userStats = await JobModel.aggregate([
+                {
+                    $match: {
+                        $expr: {
+                            $eq: [{ $year: "$createdAt" }, currentYear]
+                        },
+                        isDeleted: {
+                            $ne: true
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            month: { $month: "$createdAt" },
+                        },
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $sort: {
+                        "_id.month": 1
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        month: "$_id.month",
+                        count: 1
+                    }
+                }
+
+            ])
+            const result = Array.from({ length: month + 1 }, (_, i) => ({
+                month: i + 1,
+                count: 0
+            }));
+            userStats.forEach(stat => {
+                const index = result.findIndex(r => r.month == stat.month);
+                if (index !== -1) {
+                    result[index].count = stat.count;
+                }
+            });
+            let count = await JobModel.find({ isDeleted: { $ne: true } }).countDocuments();
+            return { result, count }
+        } catch (err) {
+            console.error(`Error fetching chart: ${err}`);
+            return null;
+        }
+    }
 export default{
 findRecruiter,
 createRecruiter,
@@ -368,5 +513,8 @@ getRecruiter,
 profileData,
 follow,
 unfollow,
-searchRecruiter
+searchRecruiter,
+updateApplystatus,
+getChartDetails,
+getJobChart
 }

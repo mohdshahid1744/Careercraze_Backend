@@ -6,6 +6,8 @@ export interface Applicant {
     email: string;
     mobile: string;
     cvPath: string;
+    status: string;
+    createdAt: Date;
 }
 export interface JOB extends Document {
     jobrole: string;
@@ -85,6 +87,14 @@ const JobSchema: Schema<JOB> = new Schema({
         },
         cv: {
             type: String,
+        },
+        status: {
+            type: String,
+            default:'Applied'
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
         }
     }],
     recruiterId: {

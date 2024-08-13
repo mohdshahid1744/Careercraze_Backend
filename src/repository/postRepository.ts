@@ -134,6 +134,58 @@ const replyComment=async(userId: string, postId: string, comment: string, parent
         return null;
     }
 }
+const getChartDetails= async (currentYear: number, month: number) => {
+    try {
+        const userStats = await PostModel.aggregate([
+            {
+                $match: {
+                    $expr: {
+                        $eq: [{ $year: "$createdAt" }, currentYear]
+                    },
+                    isDeleted: {
+                        $ne: true
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        month: { $month: "$createdAt" },
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $sort: {
+                    "_id.month": 1
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    month: "$_id.month",
+                    count: 1
+                }
+            }
+
+        ])
+        const result = Array.from({ length: month + 1 }, (_, i) => ({
+            month: i + 1,
+            count: 0
+        }));
+        userStats.forEach(stat => {
+            const index = result.findIndex(r => r.month == stat.month);
+            if (index !== -1) {
+                result[index].count = stat.count;
+            }
+        });
+        let count = await PostModel.find({ isDeleted: { $ne: true } }).countDocuments();
+        return { result, count }
+    } catch (err) {
+        console.error(`Error fetching chart: ${err}`);
+        return null;
+    }
+}
 export default{ 
     createPost,
     getPost,
@@ -144,5 +196,6 @@ export default{
     editPost,
     reportPost,
     deleteComments,
-    replyComment
+    replyComment,
+    getChartDetails
 }

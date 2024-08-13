@@ -168,11 +168,20 @@ const getallSavedJob=async()=>{
         return null;
     }
 }
+const getChartDetails=async(year:number , month:number)=>{
+    try {
+        let response = await userRepository.getChartDetails(year, month)
+        return response
+    } catch (err) {
+        throw new Error(`Failed to sign up: ${err}`);
+    }
+}
 export default{
     createUser,
     verifyLogin,
     sendMail,
     authenticateWithGoogle,
     applyApplication,
-    getallSavedJob
+    getallSavedJob,
+    getChartDetails
 }

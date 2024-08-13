@@ -84,7 +84,10 @@ const getUserPost=async(req:Request,res:Response)=>{
 }
 const getAllPost=async(req:Request,res:Response)=>{
     try {
-        let posts = await PostModel.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 })
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+            const skip = (page - 1) * limit;
+        let posts = await PostModel.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 }).skip(skip).limit(limit)
         for (let post of posts) {
             const getObjectParams = {
                 Bucket: bucket_name,
@@ -219,6 +222,17 @@ const deleteComments=async(req:Request,res:Response)=>{
         res.status(500).json({ error: 'Internal server error' });    
     }
 }
+const getPostChart=async(req:Request,res:Response)=>{
+    try {
+        const currentYear = new Date().getFullYear()
+        const month = new Date().getMonth()
+        let response = await postService.getChartDetails(currentYear, month)
+        res.status(200).json({response}) 
+    } catch (error) {
+        console.error(`Error getting post chart: ${error}`);
+        res.status(500).json({ error: 'Internal server error' });    
+    }
+}
 export default{
     createPost,
     getUserPost,
@@ -231,5 +245,6 @@ export default{
     editPost,
     reportPost,
     deleteComments,
-    replyComment
+    replyComment,
+    getPostChart
 }

@@ -38,9 +38,18 @@ const deleteComments=async(postId:string,commentId:string)=>{
         return null;
     }
 }
+const getChartDetails= async (year: number, month: number) => {
+    try {
+        let response = await postRepository.getChartDetails(year, month)
+        return response
+    } catch (err) {
+        throw new Error(`Failed to sign up: ${err}`);
+    }
+}
 export default {
     deletePost,
     editPost,
     reportPost,
-    deleteComments
+    deleteComments,
+    getChartDetails
 }

@@ -33,7 +33,7 @@ router.put('/updateProfileData/:userId',userJwt.verifyJwtUser, userController.up
 router.get('/getuser/:id', userController.getUser)
 router.post('/applyjob',  upload.single("cv"), userController.applyApplication); 
 router.post('/addskills',userController.addSkills)
-router.get('/getskills',userController.getSkills)
+router.get('/getskills',userController.getSkills) 
 router.put('/editedskill/:id',userController.editAdminSkills)
 router.delete('/deleteskilled/:id', userController.deleteAdminSkill);
 router.post('/createpost/:userId',upload.single("image"),postController.createPost)
@@ -62,5 +62,8 @@ router.post('/logout',userController.logout)
 router.post('/savejob',userController.saveJob)
 router.get('/getsavejob',userController.getAllSavedJob)
 router.delete('/deletesavejob/:savedId', userController.removeSavedJob)
+router.get('/getuserchart', userController.getUserChart)
+router.get('/postchart', postController.getPostChart)
+router.get('/getlastseen', userController.getLastSeen)
 
 export default router            

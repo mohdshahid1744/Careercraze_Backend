@@ -33,4 +33,8 @@ router.get('/getPdf', recruiterController.getPdf)
 router.get('/searchrecruiter', recruiterController.searchRecruiter)
 router.get('/follow/:userId/:guestId', recruiterController.follow)
 router.get('/unfollow/:userId/:guestId', recruiterController.unfollow)
-export default router       
+router.get('/appliedjobs/:userId', recruiterController.getAppliedJobs)
+router.post('/updateapplystatus', recruiterController.updateApplystatus)
+router.get('/getreports', recruiterController.getReports)
+router.get('/getjobchart', recruiterController.getJobChartData)
+export default router 

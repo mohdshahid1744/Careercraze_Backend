@@ -26,18 +26,10 @@ const sendMessage = async (chatId: string, userId: string, message: string, file
             filePath: filePath || '',  
             fileType: fileType || ''
         });
-
+        await ChatModel.findByIdAndUpdate(chatId, { updatedAt: new Date() });
         await newMessage.save();
 
-        if (newMessage.filePath) {
-            const getObjectParams = {
-                Bucket: bucket_name,
-                Key: newMessage.filePath,
-            };
-            const getObjectCommand = new GetObjectCommand(getObjectParams);
-            const signedUrl = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
-            newMessage.filePath = signedUrl; 
-        }
+    
 
         console.log(newMessage, 'Message saved successfully');
         return newMessage;
@@ -65,6 +57,7 @@ const getMessage = async (chatId: string) => {
                 message.filePath = url;  
             }
         }
+        
         return { messages };
     } catch (err) {
         console.error("Error while getting messages", err);
@@ -91,16 +84,7 @@ const createChat=async(user1:string,user2:string)=>{
         return null;
     }
 }
-const getChatList=async(userId:string)=>{
-    try {
-        const chatlist = await ChatModel.find({ participants: userId })
-        console.log('----', chatlist);
-        return { chatlist };
-    } catch (err) {
-        console.error("Error while get lisdt of chats", err)
-        return null;
-    }
-}
+
 
 const deleteChat=async(chatId:string)=>{
 try {
@@ -124,6 +108,45 @@ const editMessage = async (messageId:string, newMessage:string) => {
       return null;
     }
   };
+  const getChatList = async (userId: string) => {
+    try {
+      const chatlist = await ChatModel.aggregate([
+        { $match: { participants: userId } },
+        {
+          $lookup: {
+            from: "messages",
+            localField: "_id",
+            foreignField: "chat",
+            as: 'messages'
+          }
+        },
+        {
+          $unwind: {
+            path: "$messages",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        { $sort: { "messages.createdAt": -1 } },  // Sort messages by createdAt in descending order
+        {
+          $group: {
+            _id: "$_id",
+            participants: { $first: "$participants" },
+            createdAt: { $first: "$createdAt" },
+            updatedAt: { $first: "$updatedAt" },
+            lastMessage: { $first: "$messages" }  // Get the most recent message
+          }
+        },
+        { $sort: { "updatedAt": -1 } }  // Sort chats by updatedAt in descending order
+      ]);
+  
+      console.log(chatlist, '===============chatlist');
+      return { chatlist };
+    } catch (err) {
+      console.error("Error while getting list of chats", err);
+      return null;
+    }
+  }
+  
 export default{
     sendMessage,
     getMessage,

@@ -217,6 +217,33 @@ const authenticateWithGoogle = async (credential: any) => {
         throw new Error(`Failed to sign in using google: ${err}`);
     }
 };
+const updateApplystatus=async(jobId: string, userId: string, status: string)=>{
+  try {
+    let response = await recruiterRepository.updateApplystatus(jobId, userId, status)
+    return response
+} catch (err) {
+    throw new Error(`Failed to change Applicants status ${err}`);
+}
+}
+
+const getChartDetails=async (year:number , month:number)=>{
+  try {
+    let response = await recruiterRepository.getChartDetails(year, month)
+    return response
+} catch (err) {
+    throw new Error(`Failed to sign up: ${err}`);
+}
+}
+
+const getJobChart=async (year: number, month: number) => {
+  try {
+      let response = await recruiterRepository.getChartDetails(year, month)
+      return response
+  } catch (err) {
+      throw new Error(`Failed to sign up: ${err}`);
+  }
+}
+
 
 
 export default {
@@ -228,5 +255,8 @@ export default {
   getalljob,
   getSingle,
   authenticateWithGoogle,
-  getCandidate
+  getCandidate,
+  updateApplystatus,
+  getChartDetails,
+  getJobChart
 }

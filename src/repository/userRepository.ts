@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs'
 import dotenv from "dotenv";
 import recruiterModel from "../models/recruiterModel";
 import SaveJobModel from "../models/saveJobModel";
+import ChatModel from "../models/chatModel";
 dotenv.config();
 
 interface User{
@@ -477,6 +478,56 @@ const removeSavedJob=async(savedId:string)=>{
     throw error;
 }
 }
+const getChartDetails=async(currentYear:number , month:number)=>{
+  try {
+    const userStats = await userModel.aggregate([
+        {
+            $match: {
+                $expr: {
+                    $eq: [{ $year: "$createdAt" }, currentYear]
+                }
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    month: { $month: "$createdAt" },
+                },
+                count: { $sum: 1 }
+            }
+        },
+        {
+            $sort: {
+                "_id.month": 1
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                month: "$_id.month",
+                count: 1
+            }
+        }
+
+    ])
+    const result = Array.from({ length: month + 1 }, (_, i) => ({
+        month: i + 1,
+        count: 0
+    }));
+    userStats.forEach(stat => {
+        const index = result.findIndex(r => r.month == stat.month);
+        if (index !== -1) {
+            result[index].count = stat.count;
+        }
+    });
+    let count = await userModel.find({ isAdmin: false }).countDocuments()
+    return { result, count }
+} catch (err) {
+    console.error(`Error fetching chart: ${err}`);
+    return null;
+}
+}
+
 export default {
   findUser,
   createUser,
@@ -498,5 +549,6 @@ export default {
   logout,
   saveJob,
   getallSavedJob,
-  removeSavedJob
+  removeSavedJob,
+  getChartDetails
 };

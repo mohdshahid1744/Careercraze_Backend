@@ -799,6 +799,37 @@ const removeSavedJob=async(req:Request,res:Response)=>{
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+const getUserChart=async(req:Request,res:Response)=>{
+  try {
+    const currentYear = new Date().getFullYear()
+    const month = new Date().getMonth()
+    let response = await userService.getChartDetails(currentYear, month)
+    res.status(200).json({response})
+  }catch (error) {
+    console.error('Error getting user chart reports:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+const getLastSeen = async (req: Request, res: Response) => {
+  try {
+    const userId = req.query.userId as string;
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+    const user = await userModel.findById(userId).select('lastSeen').exec();
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ lastSeen: user.lastSeen });
+  } catch (error) {
+    console.error('Error fetching last seen status:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
   export default{
     signupSubmit,
     loginSubmit,
@@ -834,5 +865,7 @@ const removeSavedJob=async(req:Request,res:Response)=>{
     logout,
     saveJob,
     getAllSavedJob,
-    removeSavedJob
+    removeSavedJob,
+    getUserChart,
+    getLastSeen
   }

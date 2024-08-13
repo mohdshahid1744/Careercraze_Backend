@@ -629,6 +629,52 @@ const unfollow=async(req:Request,res:Response)=>{
   }
 }
 
+const updateApplystatus=async(req:Request,res:Response)=>{
+  try {
+    const { jobId, userId, status} = req.body;
+    const response=await recruiterService.updateApplystatus(jobId,userId,status)
+    res.status(200).json({response})
+  } catch (error) {
+    console.error('Error updating application status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+const getAppliedJobs=async(req:Request,res:Response)=>{
+  const { userId } = req.params;
+  try {
+    const jobs = await JobModel.find({
+      'applicants.userId': userId
+    }).exec();
+    
+    res.status(200).json(jobs);
+  } catch (error) {
+    console.error('Error getting applied jobs:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+const getReports=async(req:Request,res:Response)=>{
+  try {
+    const currentYear = new Date().getFullYear()
+    const month = new Date().getMonth()
+    let response = await recruiterService.getChartDetails(currentYear, month)
+    res.status(200).json({response})
+  } catch (error) {
+    console.error('Error getting Reports:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+const getJobChartData=async(req:Request,res:Response)=>{
+  try {
+    const currentYear = new Date().getFullYear()
+    const month = new Date().getMonth()
+    let response = await recruiterService.getJobChart(currentYear, month)
+    res.status(200).json({response})
+  }  catch (error) {
+    console.error('Error getting job chart:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
 export default{
   recruiterSignup,
   loginSubmit,
@@ -654,5 +700,9 @@ export default{
   getPdf,
   searchRecruiter,
   follow,
-  unfollow
+  unfollow,
+  updateApplystatus,
+  getAppliedJobs,
+  getReports,
+  getJobChartData
 }

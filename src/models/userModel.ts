@@ -14,6 +14,8 @@ export interface IUser extends Document{
     isActive:boolean,
     password:string,
     banner?: string;
+    createdAt:Date;
+    appliedJobs: { jobId: mongoose.Types.ObjectId, status: string }[];
     lastSeen: string;
     followers: mongoose.Types.ObjectId[];
     following: mongoose.Types.ObjectId[];
@@ -72,6 +74,10 @@ const userSchema:Schema<IUser>=new Schema({
         type: String,
         default: "banner.png"
     },
+    appliedJobs: [{
+        jobId: { type: Schema.Types.ObjectId, ref: 'Jobs' },
+        status: { type: String, default: 'applied' }
+    }],
     lastSeen:{
         type:String,
     },
@@ -85,6 +91,11 @@ const userSchema:Schema<IUser>=new Schema({
             type: Schema.Types.ObjectId,
         }
     ],
+    createdAt:
+    {
+        type: Date,
+        default: Date.now
+    }
 })
 
 userSchema.pre<IUser>('save',async function (next) {

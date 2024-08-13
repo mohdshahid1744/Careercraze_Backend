@@ -2,6 +2,8 @@ import { Server, Socket } from "socket.io";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from "dotenv";
+import User from '../models/userModel'; 
+
 dotenv.config();
 let access_key = process.env.USER_ACCESS_KEY;
 let secret_key = process.env.USER_SECRET_KEY;
@@ -15,32 +17,41 @@ const s3: S3Client = new S3Client({
   region: process.env.BUCKET_REGION
 });
 const onlineUsers = new Map<string, string>();
+
 const configureSocket = (io: Server) => {
   io.on("connection", (socket: Socket) => {
     console.log("connected to socket.io");
 
     socket.on("setup", (user: any) => {
       socket.join(user.UserId);
-      onlineUsers.set(user.UserId, socket.id)
+      onlineUsers.set(user.UserId, socket.id);
       io.emit('user status', Array.from(onlineUsers.keys()));
       socket.emit("connected");
     });
-    socket.on("disconnect", () => {
-      onlineUsers.forEach((socketId, userId) => {
+
+    socket.on("disconnect", async () => {
+      for (let [userId, socketId] of onlineUsers.entries()) {
         if (socketId === socket.id) {
           onlineUsers.delete(userId);
+          const lastSeen = new Date();
+          await User.findByIdAndUpdate(userId, { lastSeen }); 
           io.emit('user status', Array.from(onlineUsers.keys()));
+          io.emit('lastSeenUpdated', { userId, lastSeen }); 
         }
-      });
+      }
+    });
+
+    socket.on("logout", async (userId: string) => {
+      onlineUsers.delete(userId);
+      const lastSeen = new Date();
+      await User.findByIdAndUpdate(userId, { lastSeen });
+      io.emit('user status', Array.from(onlineUsers.keys()));
+      io.emit('lastSeenUpdated', { userId, lastSeen }); 
     });
 
     socket.on('join chat', (room) => {
       socket.join(room);
       console.log("Joined room:", room);
-    });
-    socket.on("logout", (userId: string) => {
-      onlineUsers.delete(userId);
-      io.emit('user status', Array.from(onlineUsers.keys()));
     });
 
     socket.on('new message', async (newMessageReceived) => {
@@ -60,23 +71,18 @@ const configureSocket = (io: Server) => {
           const signedUrl = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
           
           newMessageReceived.filePath = signedUrl;   
-          console.log("ASDASDASDASDASDASDASDASDASD",signedUrl);
-          
+          console.log("ASDASDASDASDASDASDASDASDASD", signedUrl);
       }
       socket.to(newMessageReceived.chat).emit("message received", newMessageReceived);
-      
-  });
-  
-  
-  
-    
-    
+      io.emit("sortChatlist", newMessageReceived);
+    });
 
     socket.on("delete message", (messageId, chatId) => {
       console.log("Deleting message:", messageId);
       console.log("Deleting chat:", chatId);
       socket.to(chatId).emit("message deleted", messageId);
     });
+
     socket.on("edit message", (editedMessage) => {
       console.log("Editing message:", editedMessage);
 
@@ -86,7 +92,6 @@ const configureSocket = (io: Server) => {
       }
       socket.to(editedMessage.chatId).emit("message edited", editedMessage);
     });
-
 
     socket.on("typing", (room: string) => {
       socket.in(room).emit("typing");
@@ -100,38 +105,37 @@ const configureSocket = (io: Server) => {
       console.log(`Incoming call to ${userToCall} from ${from}`);
       const userSocketId = onlineUsers.get(userToCall);
       
-      
       if (userSocketId) {
           io.to(userSocketId).emit('incomingCall', { from, offer, fromId });
       }
-  });
-  socket.on('signal', (data) => {
-    const { userId, type, candidate, answer, context } = data;
-    console.log("Received signal:",  context);
-    
-    if (context === 'webRTC') {
-      console.log("Handling WebRTC signal for user:", userId);
-      const userSocketId = onlineUsers.get(userId);
+    });
+
+    socket.on('signal', (data) => {
+      const { userId, type, candidate, answer, context } = data;
+      console.log("Received signal:",  context);
       
-      if (userSocketId) {
-        io.to(userSocketId).emit('signal', { type, candidate, answer });
+      if (context === 'webRTC') {
+        console.log("Handling WebRTC signal for user:", userId);
+        const userSocketId = onlineUsers.get(userId);
+        
+        if (userSocketId) {
+          io.to(userSocketId).emit('signal', { type, candidate, answer });
+        }
       }
-    }
-  });
-  
-  socket.on('callAccepted', ({ userId, answer, context }) => {
-    if (context
-        == 'webRTC') {
-        const userSocketId = onlineUsers.get(userId) || ''
+    });
+
+    socket.on('callAccepted', ({ userId, answer, context }) => {
+      if (context === 'webRTC') {
+        const userSocketId = onlineUsers.get(userId) || '';
         console.log(`Sending call accepted signal to ${userId},${userSocketId}`);
         io.to(userSocketId).emit('callAcceptedSignal', { answer });
-    }
-});
+      }
+    });
 
-socket.on('callEnded', (guestId) => {
-  let userSocketId = onlineUsers.get(guestId) || ''
-  io.to(userSocketId).emit('callEndedSignal');
-})
+    socket.on('callEnded', (guestId) => {
+      let userSocketId = onlineUsers.get(guestId) || '';
+      io.to(userSocketId).emit('callEndedSignal');
+    });
 
     socket.off("setup", (user: any) => {
       console.log("User Disconnected");
