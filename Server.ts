@@ -18,12 +18,12 @@ const port = 3001;
 const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: {
-    origin: 'http://localhost:3000',
+    origin: 'https://careercraze.site',
     credentials: true
   },
 });
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: 'https://careercraze.site',
   credentials: true,
 }));
 
