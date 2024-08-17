@@ -19,7 +19,8 @@ const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: {
     origin: 'https://careercraze.site',
-    credentials: true
+    methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 app.use(cors({
